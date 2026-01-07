@@ -46,14 +46,40 @@ class UltrahumanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as response:
                 if response.status == 401:
+                    _LOGGER.error("Invalid API token - authentication failed")
                     raise UpdateFailed("Invalid API token")
+                elif response.status == 403:
+                    _LOGGER.error("API token lacks required permissions")
+                    raise UpdateFailed("API token lacks required permissions")
+                elif response.status == 404:
+                    _LOGGER.warning("No data available for date: %s", today)
+                    # Return empty dict instead of failing for missing data
+                    return {}
+                elif response.status >= 500:
+                    _LOGGER.error("Ultrahuman API server error: %s", response.status)
+                    raise UpdateFailed(f"Ultrahuman API server error: {response.status}")
+                
                 response.raise_for_status()
                 data = await response.json()
-                _LOGGER.debug("Received data from Ultrahuman API: %s", data)
-                return data
+                
+                # Log data structure for debugging (without sensitive data)
+                if isinstance(data, dict):
+                    _LOGGER.debug(
+                        "Received data from Ultrahuman API with keys: %s",
+                        list(data.keys())
+                    )
+                else:
+                    _LOGGER.debug("Received data from Ultrahuman API: %s", type(data))
+                
+                return data if isinstance(data, dict) else {}
+        except aiohttp.ClientTimeout:
+            _LOGGER.error("Timeout while connecting to Ultrahuman API")
+            raise UpdateFailed("Timeout while connecting to Ultrahuman API")
         except aiohttp.ClientError as err:
+            _LOGGER.error("Error communicating with Ultrahuman API: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         except Exception as err:
+            _LOGGER.exception("Unexpected error while fetching Ultrahuman data: %s", err)
             raise UpdateFailed(f"Unexpected error: {err}") from err
 
     async def async_shutdown(self) -> None:
