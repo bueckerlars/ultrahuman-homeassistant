@@ -84,6 +84,7 @@ def _infer_device_class_and_unit(key: str) -> tuple[SensorDeviceClass | None, st
 
 
 # Define common sensor descriptions for known Ring metrics
+# Try multiple possible key names to handle different API response formats
 SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
     # Heart Rate metrics
     UltrahumanSensorEntityDescription(
@@ -93,9 +94,10 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:heart-pulse",
-        value_fn=lambda d: _extract_nested_value(d, "heart_rate", "resting")
-            or _extract_nested_value(d, "resting_heart_rate")
-            or _extract_nested_value(d, "heart_rate_resting"),
+        value_fn=lambda d: d.get("resting_heart_rate") 
+            or d.get("heart_rate_resting")
+            or _extract_nested_value(d, "heart_rate", "resting")
+            or _extract_nested_value(d, "heartRate", "resting"),
     ),
     UltrahumanSensorEntityDescription(
         key="heart_rate_avg",
@@ -104,9 +106,11 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:heart-pulse",
-        value_fn=lambda d: _extract_nested_value(d, "heart_rate", "average")
-            or _extract_nested_value(d, "avg_heart_rate")
-            or _extract_nested_value(d, "heart_rate_avg"),
+        value_fn=lambda d: d.get("avg_heart_rate")
+            or d.get("heart_rate_avg")
+            or d.get("average_heart_rate")
+            or _extract_nested_value(d, "heart_rate", "average")
+            or _extract_nested_value(d, "heartRate", "average"),
     ),
     # HRV (Heart Rate Variability)
     UltrahumanSensorEntityDescription(
@@ -115,8 +119,9 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         native_unit_of_measurement="ms",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:heart-flash",
-        value_fn=lambda d: _extract_nested_value(d, "hrv")
-            or _extract_nested_value(d, "heart_rate_variability"),
+        value_fn=lambda d: d.get("hrv")
+            or d.get("heart_rate_variability")
+            or _extract_nested_value(d, "hrv"),
     ),
     # Sleep metrics
     UltrahumanSensorEntityDescription(
@@ -126,16 +131,19 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:sleep",
-        value_fn=lambda d: _extract_nested_value(d, "sleep", "duration")
-            or _extract_nested_value(d, "sleep_duration"),
+        value_fn=lambda d: d.get("sleep_duration")
+            or d.get("sleepDuration")
+            or _extract_nested_value(d, "sleep", "duration")
+            or _extract_nested_value(d, "sleep", "duration_minutes"),
     ),
     UltrahumanSensorEntityDescription(
         key="sleep_quality",
         name="Sleep Quality",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:sleep",
-        value_fn=lambda d: _extract_nested_value(d, "sleep", "quality")
-            or _extract_nested_value(d, "sleep_quality"),
+        value_fn=lambda d: d.get("sleep_quality")
+            or d.get("sleepQuality")
+            or _extract_nested_value(d, "sleep", "quality"),
     ),
     # Activity metrics
     UltrahumanSensorEntityDescription(
@@ -144,15 +152,18 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         native_unit_of_measurement="steps",
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:walk",
-        value_fn=lambda d: _extract_nested_value(d, "steps")
-            or _extract_nested_value(d, "activity", "steps"),
+        value_fn=lambda d: d.get("steps")
+            or d.get("step_count")
+            or _extract_nested_value(d, "activity", "steps")
+            or _extract_nested_value(d, "activity", "step_count"),
     ),
     UltrahumanSensorEntityDescription(
         key="activity_index",
         name="Activity Index",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:run",
-        value_fn=lambda d: _extract_nested_value(d, "activity_index")
+        value_fn=lambda d: d.get("activity_index")
+            or d.get("activityIndex")
             or _extract_nested_value(d, "activity", "index"),
     ),
     # Recovery metrics
@@ -161,7 +172,8 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         name="Recovery Index",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:heart-plus",
-        value_fn=lambda d: _extract_nested_value(d, "recovery_index")
+        value_fn=lambda d: d.get("recovery_index")
+            or d.get("recoveryIndex")
             or _extract_nested_value(d, "recovery", "index"),
     ),
     UltrahumanSensorEntityDescription(
@@ -169,7 +181,8 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         name="Metabolic Score",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:chart-line",
-        value_fn=lambda d: _extract_nested_value(d, "metabolic_score")
+        value_fn=lambda d: d.get("metabolic_score")
+            or d.get("metabolicScore")
             or _extract_nested_value(d, "metabolic", "score"),
     ),
     # Body Temperature
@@ -180,7 +193,9 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
-        value_fn=lambda d: _extract_nested_value(d, "body_temperature")
+        value_fn=lambda d: d.get("body_temperature")
+            or d.get("bodyTemperature")
+            or d.get("temperature")
             or _extract_nested_value(d, "temperature", "body"),
     ),
     # VO2 Max
@@ -190,7 +205,8 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         native_unit_of_measurement="ml/kg/min",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:run-fast",
-        value_fn=lambda d: _extract_nested_value(d, "vo2_max")
+        value_fn=lambda d: d.get("vo2_max")
+            or d.get("vo2Max")
             or _extract_nested_value(d, "fitness", "vo2_max"),
     ),
 )
@@ -208,6 +224,11 @@ def _create_sensors_from_data(
     
     for key, value in data.items():
         full_key = f"{prefix}_{key}" if prefix else key
+        
+        # Skip keys that are already handled by predefined sensors
+        predefined_keys = {desc.key for desc in SENSOR_DESCRIPTIONS}
+        if full_key in predefined_keys or key in predefined_keys:
+            continue
         
         if isinstance(value, (int, float)):
             # Create sensor for numeric values
@@ -343,19 +364,28 @@ async def async_setup_entry(
         _LOGGER.warning("Received invalid data format from coordinator: %s", type(data))
         return
     
+    # Log available keys for debugging
+    _LOGGER.info("Available data keys: %s", list(data.keys()) if isinstance(data, dict) else "N/A")
+    
     # First, add predefined sensors if they match the data
     for description in SENSOR_DESCRIPTIONS:
         if description.value_fn:
-            value = description.value_fn(data)
-            if value is not None:
-                # Check if sensor already exists (avoid duplicates)
-                existing_keys = {e.entity_description.key for e in entities}
-                if description.key not in existing_keys:
-                    entities.append(
-                        UltrahumanSensor(coordinator=coordinator, description=description)
-                    )
+            try:
+                value = description.value_fn(data)
+                if value is not None:
+                    # Check if sensor already exists (avoid duplicates)
+                    existing_keys = {e.entity_description.key for e in entities}
+                    if description.key not in existing_keys:
+                        entities.append(
+                            UltrahumanSensor(coordinator=coordinator, description=description)
+                        )
+                        _LOGGER.info("Added predefined sensor: %s with value: %s", description.key, value)
+                else:
+                    _LOGGER.debug("Predefined sensor %s returned None, skipping", description.key)
+            except Exception as err:
+                _LOGGER.warning("Error checking sensor %s: %s", description.key, err)
     
-    # Then create dynamic sensors for remaining data
+    # Then create dynamic sensors for ALL data (including those not in predefined list)
     existing_keys = {e.entity_description.key for e in entities}
     dynamic_entities = _create_sensors_from_data(data, coordinator)
     
@@ -364,8 +394,11 @@ async def async_setup_entry(
         if entity.entity_description.key not in existing_keys:
             entities.append(entity)
             existing_keys.add(entity.entity_description.key)
+            _LOGGER.debug("Added dynamic sensor: %s", entity.entity_description.key)
 
     _LOGGER.info("Created %d Ultrahuman sensors", len(entities))
+    if len(entities) == 0:
+        _LOGGER.warning("No sensors created! Data structure: %s", data)
     async_add_entities(entities)
 
 

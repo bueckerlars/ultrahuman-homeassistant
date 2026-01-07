@@ -64,12 +64,15 @@ class UltrahumanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 
                 # Log data structure for debugging (without sensitive data)
                 if isinstance(data, dict):
-                    _LOGGER.debug(
+                    _LOGGER.info(
                         "Received data from Ultrahuman API with keys: %s",
                         list(data.keys())
                     )
+                    # Log sample values for debugging (first level only)
+                    for key, val in list(data.items())[:5]:
+                        _LOGGER.debug("Sample data - %s: %s (type: %s)", key, val, type(val).__name__)
                 else:
-                    _LOGGER.debug("Received data from Ultrahuman API: %s", type(data))
+                    _LOGGER.warning("Received non-dict data from Ultrahuman API: %s", type(data))
                 
                 return data if isinstance(data, dict) else {}
         except aiohttp.ClientTimeout:
