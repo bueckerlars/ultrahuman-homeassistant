@@ -123,6 +123,28 @@ class UltrahumanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                 if "value" in metric_obj:
                                     flattened["steps"] = metric_obj["value"]
                             
+                            elif metric_type == "active_minutes":
+                                # Active minutes - Total minutes of moderate to vigorous physical activity
+                                if "value" in metric_obj:
+                                    flattened["activity_minutes"] = metric_obj["value"]
+                                    # Also calculate hours
+                                    flattened["activity_hours"] = metric_obj["value"] / 60
+                            
+                            elif metric_type == "motion":
+                                # Motion/Movement intensity - may contain calories and other metrics
+                                if "value" in metric_obj:
+                                    flattened["movement_index"] = metric_obj["value"]
+                                
+                                # Extract additional metrics from quick_metrics
+                                if "quick_metrics" in metric_obj:
+                                    for qm in metric_obj["quick_metrics"]:
+                                        if isinstance(qm, dict) and "type" in qm:
+                                            qm_type = qm["type"]
+                                            if qm_type == "calories" and "value" in qm:
+                                                flattened["total_calories"] = qm["value"]
+                                            elif qm_type == "total_calories" and "value" in qm:
+                                                flattened["total_calories"] = qm["value"]
+                            
                             elif metric_type == "activity_index":
                                 # Activity index - may contain quick_metrics with additional data
                                 if "value" in metric_obj:
@@ -133,30 +155,14 @@ class UltrahumanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                     for qm in metric_obj["quick_metrics"]:
                                         if isinstance(qm, dict) and "type" in qm:
                                             qm_type = qm["type"]
-                                            if qm_type == "total_calories" and "value" in qm:
+                                            if qm_type == "calories" and "value" in qm:
                                                 flattened["total_calories"] = qm["value"]
-                                            elif qm_type == "activity_minutes" and "value" in qm:
+                                            elif qm_type == "total_calories" and "value" in qm:
+                                                flattened["total_calories"] = qm["value"]
+                                            elif qm_type == "active_minutes" and "value" in qm:
                                                 flattened["activity_minutes"] = qm["value"]
-                                            elif qm_type == "activity_hours" and "value" in qm:
-                                                flattened["activity_hours"] = qm["value"]
-                                            elif qm_type == "calories" and "value" in qm:
-                                                # Alternative key name
-                                                flattened["total_calories"] = qm["value"]
-                            
-                            elif metric_type == "calories" or metric_type == "total_calories":
-                                # Total calories
-                                if "value" in metric_obj:
-                                    flattened["total_calories"] = metric_obj["value"]
-                            
-                            elif metric_type == "activity_minutes":
-                                # Activity minutes
-                                if "value" in metric_obj:
-                                    flattened["activity_minutes"] = metric_obj["value"]
-                            
-                            elif metric_type == "activity_hours":
-                                # Activity hours
-                                if "value" in metric_obj:
-                                    flattened["activity_hours"] = metric_obj["value"]
+                                                # Calculate hours from minutes
+                                                flattened["activity_hours"] = qm["value"] / 60
                             
                             elif metric_type == "recovery_index":
                                 # Recovery index
