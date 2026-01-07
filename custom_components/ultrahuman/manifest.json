@@ -1,13 +1,17 @@
 {
   "domain": "ultrahuman",
   "name": "Ultrahuman",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "documentation": "https://github.com/yourusername/homeassistant-ultrahuman",
   "issue_tracker": "https://github.com/yourusername/homeassistant-ultrahuman/issues",
-  "codeowners": ["@yourusername"],
+  "codeowners": [
+    "@yourusername"
+  ],
   "config_flow": true,
   "dependencies": [],
-  "requirements": ["aiohttp>=3.8.0"],
+  "requirements": [
+    "aiohttp>=3.8.0"
+  ],
   "iot_class": "cloud_polling",
   "integration_type": "hub"
 }
