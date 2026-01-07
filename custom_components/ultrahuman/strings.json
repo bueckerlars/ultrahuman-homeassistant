@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ultrahuman Setup",
+        "description": "Enter your Ultrahuman Personal API Token",
+        "data": {
+          "api_token": "Personal API Token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to Ultrahuman API",
+      "invalid_auth": "Invalid API token",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  }
+}
