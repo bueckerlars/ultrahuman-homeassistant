@@ -364,36 +364,20 @@ async def async_setup_entry(
         return
     
     # Log available keys for debugging
-    _LOGGER.info("Available data keys: %s", list(data.keys()) if isinstance(data, dict) else "N/A")
+    _LOGGER.debug("Available data keys: %s", list(data.keys()) if isinstance(data, dict) else "N/A")
     
-    # First, add predefined sensors if they match the data
+    # Only create predefined sensors that have actual values
     for description in SENSOR_DESCRIPTIONS:
         if description.value_fn:
             try:
                 value = description.value_fn(data)
                 if value is not None:
-                    # Check if sensor already exists (avoid duplicates)
-                    existing_keys = {e.entity_description.key for e in entities}
-                    if description.key not in existing_keys:
-                        entities.append(
-                            UltrahumanSensor(coordinator=coordinator, description=description)
-                        )
-                        _LOGGER.info("Added predefined sensor: %s with value: %s", description.key, value)
-                else:
-                    _LOGGER.debug("Predefined sensor %s returned None, skipping", description.key)
+                    entities.append(
+                        UltrahumanSensor(coordinator=coordinator, description=description)
+                    )
+                    _LOGGER.debug("Added sensor: %s with value: %s", description.key, value)
             except Exception as err:
                 _LOGGER.warning("Error checking sensor %s: %s", description.key, err)
-    
-    # Then create dynamic sensors for ALL data (including those not in predefined list)
-    existing_keys = {e.entity_description.key for e in entities}
-    dynamic_entities = _create_sensors_from_data(data, coordinator)
-    
-    # Add dynamic sensors that don't conflict with predefined ones
-    for entity in dynamic_entities:
-        if entity.entity_description.key not in existing_keys:
-            entities.append(entity)
-            existing_keys.add(entity.entity_description.key)
-            _LOGGER.debug("Added dynamic sensor: %s", entity.entity_description.key)
 
     _LOGGER.info("Created %d Ultrahuman sensors", len(entities))
     if len(entities) == 0:

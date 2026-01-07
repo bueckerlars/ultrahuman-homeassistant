@@ -147,9 +147,6 @@ class UltrahumanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                 # VO2 Max
                                 if "value" in metric_obj:
                                     flattened["vo2_max"] = metric_obj["value"]
-                            
-                            # Store the raw object for dynamic processing
-                            flattened[f"metric_{metric_type}"] = metric_obj
                     
                     _LOGGER.info(
                         "Extracted %d metrics from API response. Keys: %s",
