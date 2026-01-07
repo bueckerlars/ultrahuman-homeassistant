@@ -84,7 +84,7 @@ def _infer_device_class_and_unit(key: str) -> tuple[SensorDeviceClass | None, st
 
 
 # Define common sensor descriptions for known Ring metrics
-# Try multiple possible key names to handle different API response formats
+# The coordinator now flattens the metrics, so we can access them directly
 SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
     # Heart Rate metrics
     UltrahumanSensorEntityDescription(
@@ -94,10 +94,7 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:heart-pulse",
-        value_fn=lambda d: d.get("resting_heart_rate") 
-            or d.get("heart_rate_resting")
-            or _extract_nested_value(d, "heart_rate", "resting")
-            or _extract_nested_value(d, "heartRate", "resting"),
+        value_fn=lambda d: d.get("heart_rate_resting"),
     ),
     UltrahumanSensorEntityDescription(
         key="heart_rate_avg",
@@ -106,11 +103,25 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:heart-pulse",
-        value_fn=lambda d: d.get("avg_heart_rate")
-            or d.get("heart_rate_avg")
-            or d.get("average_heart_rate")
-            or _extract_nested_value(d, "heart_rate", "average")
-            or _extract_nested_value(d, "heartRate", "average"),
+        value_fn=lambda d: d.get("heart_rate_avg"),
+    ),
+    UltrahumanSensorEntityDescription(
+        key="heart_rate_min",
+        name="Heart Rate Min",
+        native_unit_of_measurement="bpm",
+        device_class=SensorDeviceClass.FREQUENCY,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:heart-pulse",
+        value_fn=lambda d: d.get("heart_rate_min"),
+    ),
+    UltrahumanSensorEntityDescription(
+        key="heart_rate_max",
+        name="Heart Rate Max",
+        native_unit_of_measurement="bpm",
+        device_class=SensorDeviceClass.FREQUENCY,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:heart-pulse",
+        value_fn=lambda d: d.get("heart_rate_max"),
     ),
     # HRV (Heart Rate Variability)
     UltrahumanSensorEntityDescription(
@@ -119,9 +130,7 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         native_unit_of_measurement="ms",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:heart-flash",
-        value_fn=lambda d: d.get("hrv")
-            or d.get("heart_rate_variability")
-            or _extract_nested_value(d, "hrv"),
+        value_fn=lambda d: d.get("hrv"),
     ),
     # Sleep metrics
     UltrahumanSensorEntityDescription(
@@ -131,19 +140,23 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:sleep",
-        value_fn=lambda d: d.get("sleep_duration")
-            or d.get("sleepDuration")
-            or _extract_nested_value(d, "sleep", "duration")
-            or _extract_nested_value(d, "sleep", "duration_minutes"),
+        value_fn=lambda d: d.get("sleep_duration"),
+    ),
+    UltrahumanSensorEntityDescription(
+        key="time_in_bed",
+        name="Time in Bed",
+        native_unit_of_measurement="min",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:sleep",
+        value_fn=lambda d: d.get("time_in_bed"),
     ),
     UltrahumanSensorEntityDescription(
         key="sleep_quality",
         name="Sleep Quality",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:sleep",
-        value_fn=lambda d: d.get("sleep_quality")
-            or d.get("sleepQuality")
-            or _extract_nested_value(d, "sleep", "quality"),
+        value_fn=lambda d: d.get("sleep_quality"),
     ),
     # Activity metrics
     UltrahumanSensorEntityDescription(
@@ -152,19 +165,14 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         native_unit_of_measurement="steps",
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:walk",
-        value_fn=lambda d: d.get("steps")
-            or d.get("step_count")
-            or _extract_nested_value(d, "activity", "steps")
-            or _extract_nested_value(d, "activity", "step_count"),
+        value_fn=lambda d: d.get("steps"),
     ),
     UltrahumanSensorEntityDescription(
         key="activity_index",
         name="Activity Index",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:run",
-        value_fn=lambda d: d.get("activity_index")
-            or d.get("activityIndex")
-            or _extract_nested_value(d, "activity", "index"),
+        value_fn=lambda d: d.get("activity_index"),
     ),
     # Recovery metrics
     UltrahumanSensorEntityDescription(
@@ -172,18 +180,14 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         name="Recovery Index",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:heart-plus",
-        value_fn=lambda d: d.get("recovery_index")
-            or d.get("recoveryIndex")
-            or _extract_nested_value(d, "recovery", "index"),
+        value_fn=lambda d: d.get("recovery_index"),
     ),
     UltrahumanSensorEntityDescription(
         key="metabolic_score",
         name="Metabolic Score",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:chart-line",
-        value_fn=lambda d: d.get("metabolic_score")
-            or d.get("metabolicScore")
-            or _extract_nested_value(d, "metabolic", "score"),
+        value_fn=lambda d: d.get("metabolic_score"),
     ),
     # Body Temperature
     UltrahumanSensorEntityDescription(
@@ -193,10 +197,7 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
-        value_fn=lambda d: d.get("body_temperature")
-            or d.get("bodyTemperature")
-            or d.get("temperature")
-            or _extract_nested_value(d, "temperature", "body"),
+        value_fn=lambda d: d.get("body_temperature"),
     ),
     # VO2 Max
     UltrahumanSensorEntityDescription(
@@ -205,9 +206,7 @@ SENSOR_DESCRIPTIONS: tuple[UltrahumanSensorEntityDescription, ...] = (
         native_unit_of_measurement="ml/kg/min",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:run-fast",
-        value_fn=lambda d: d.get("vo2_max")
-            or d.get("vo2Max")
-            or _extract_nested_value(d, "fitness", "vo2_max"),
+        value_fn=lambda d: d.get("vo2_max"),
     ),
 )
 

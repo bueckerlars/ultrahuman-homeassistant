@@ -60,21 +60,107 @@ class UltrahumanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     raise UpdateFailed(f"Ultrahuman API server error: {response.status}")
                 
                 response.raise_for_status()
-                data = await response.json()
+                raw_data = await response.json()
                 
-                # Log data structure for debugging (without sensitive data)
-                if isinstance(data, dict):
+                # Extract and flatten metrics from the API response
+                # Structure: {'data': {'metrics': {'2026-01-07': [...]}}, 'error': None, 'status': 200}
+                if isinstance(raw_data, dict) and "data" in raw_data:
+                    metrics_data = raw_data.get("data", {}).get("metrics", {})
+                    
+                    # Get today's date to find the right metrics
+                    today = datetime.now().strftime("%Y-%m-%d")
+                    today_metrics = metrics_data.get(today, [])
+                    
+                    # Flatten metrics into a dictionary
+                    flattened = {}
+                    for metric in today_metrics:
+                        if isinstance(metric, dict) and "type" in metric and "object" in metric:
+                            metric_type = metric["type"]
+                            metric_obj = metric["object"]
+                            
+                            # Extract values based on metric type
+                            if metric_type == "hr":
+                                # Heart rate - extract avg from values
+                                if "values" in metric_obj and isinstance(metric_obj["values"], list):
+                                    values = [v.get("value") for v in metric_obj["values"] if "value" in v]
+                                    if values:
+                                        flattened["heart_rate_avg"] = sum(values) / len(values)
+                                        flattened["heart_rate_min"] = min(values)
+                                        flattened["heart_rate_max"] = max(values)
+                            
+                            elif metric_type == "night_rhr":
+                                # Resting heart rate
+                                if "avg" in metric_obj:
+                                    flattened["heart_rate_resting"] = metric_obj["avg"]
+                                elif "values" in metric_obj and isinstance(metric_obj["values"], list):
+                                    # Get the latest value
+                                    latest = metric_obj["values"][-1] if metric_obj["values"] else {}
+                                    if "value" in latest:
+                                        flattened["heart_rate_resting"] = latest["value"]
+                            
+                            elif metric_type == "avg_sleep_hrv":
+                                # HRV
+                                if "value" in metric_obj:
+                                    flattened["hrv"] = metric_obj["value"]
+                            
+                            elif metric_type == "sleep":
+                                # Sleep data
+                                sleep_obj = metric_obj
+                                if "quick_metrics" in sleep_obj:
+                                    for qm in sleep_obj["quick_metrics"]:
+                                        if isinstance(qm, dict) and "type" in qm:
+                                            qm_type = qm["type"]
+                                            if qm_type == "total_sleep" and "value" in qm:
+                                                # Convert seconds to minutes
+                                                flattened["sleep_duration"] = qm["value"] / 60
+                                            elif qm_type == "sleep_index" and "value" in qm:
+                                                flattened["sleep_quality"] = qm["value"]
+                                            elif qm_type == "time_in_bed" and "value" in qm:
+                                                flattened["time_in_bed"] = qm["value"] / 60
+                            
+                            elif metric_type == "steps":
+                                # Steps
+                                if "value" in metric_obj:
+                                    flattened["steps"] = metric_obj["value"]
+                            
+                            elif metric_type == "activity_index":
+                                # Activity index
+                                if "value" in metric_obj:
+                                    flattened["activity_index"] = metric_obj["value"]
+                            
+                            elif metric_type == "recovery_index":
+                                # Recovery index
+                                if "value" in metric_obj:
+                                    flattened["recovery_index"] = metric_obj["value"]
+                            
+                            elif metric_type == "metabolic_score":
+                                # Metabolic score
+                                if "value" in metric_obj:
+                                    flattened["metabolic_score"] = metric_obj["value"]
+                            
+                            elif metric_type == "body_temperature":
+                                # Body temperature
+                                if "value" in metric_obj:
+                                    flattened["body_temperature"] = metric_obj["value"]
+                            
+                            elif metric_type == "vo2_max":
+                                # VO2 Max
+                                if "value" in metric_obj:
+                                    flattened["vo2_max"] = metric_obj["value"]
+                            
+                            # Store the raw object for dynamic processing
+                            flattened[f"metric_{metric_type}"] = metric_obj
+                    
                     _LOGGER.info(
-                        "Received data from Ultrahuman API with keys: %s",
-                        list(data.keys())
+                        "Extracted %d metrics from API response. Keys: %s",
+                        len(flattened),
+                        list(flattened.keys())
                     )
-                    # Log sample values for debugging (first level only)
-                    for key, val in list(data.items())[:5]:
-                        _LOGGER.debug("Sample data - %s: %s (type: %s)", key, val, type(val).__name__)
-                else:
-                    _LOGGER.warning("Received non-dict data from Ultrahuman API: %s", type(data))
+                    return flattened
                 
-                return data if isinstance(data, dict) else {}
+                # Fallback: return raw data if structure is unexpected
+                _LOGGER.warning("Unexpected API response structure: %s", list(raw_data.keys()) if isinstance(raw_data, dict) else type(raw_data))
+                return raw_data if isinstance(raw_data, dict) else {}
         except aiohttp.ClientTimeout:
             _LOGGER.error("Timeout while connecting to Ultrahuman API")
             raise UpdateFailed("Timeout while connecting to Ultrahuman API")
