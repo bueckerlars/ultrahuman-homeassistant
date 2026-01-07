@@ -1,0 +1,61 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on tags like v1.0.0, v0.1.0, etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Extract version from tag
+        id: tag_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Tag version: $VERSION"
+      
+      - name: Get changelog
+        id: changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            # Extract changelog entry for this version
+            VERSION="${{ steps.tag_version.outputs.version }}"
+            CHANGELOG=$(awk "/^## \[$VERSION\]/,/^## /" CHANGELOG.md | head -n -1 || awk "/^## \[$VERSION\]/,/^$/" CHANGELOG.md)
+            if [ -z "$CHANGELOG" ]; then
+              CHANGELOG="Release $VERSION"
+            fi
+          else
+            CHANGELOG="Release ${{ steps.tag_version.outputs.version }}"
+          fi
+          # Escape newlines for GitHub Actions
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.tag_version.outputs.version }}
+          body: |
+            ## Release ${{ steps.tag_version.outputs.version }}
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ### Installation
+            
+            Install this release via HACS or manually by downloading the [latest release](https://github.com/${{ github.repository }}/releases/latest).
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') || contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
